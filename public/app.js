@@ -142,6 +142,16 @@
     }
     return out;
   }
+  // Quick-pick places: the trip's defaults first, then any other place already used.
+  function placeChoices() {
+    const out = [];
+    const seen = new Set();
+    for (const l of [...((S.settings && S.settings.locations) || []), ...recentLocations()]) {
+      const k = locKey(l);
+      if (k && !seen.has(k)) { seen.add(k); out.push(l); }
+    }
+    return out;
+  }
   const lastLocation = () => recentLocations()[0] || ''; // we are probably still where we last spent
   function rangeLabel(a, b) {
     if (a === b) return shortDate(a);
@@ -282,8 +292,8 @@
     if (!quick.includes(d.currency)) quick.push(d.currency);
     const more = R && R.rates ? Object.keys(R.rates).filter((c) => !quick.includes(c)).sort() : [];
     const chips = quick.map((c) => `<button type="button" class="chip" data-act="cur" data-v="${c}" aria-pressed="${d.currency === c}"><span class="n">${esc(c)}</span></button>`).join('');
-    const recent = recentLocations();
-    const locChips = recent.slice(0, 4).map((l) => `<button type="button" class="chip" data-act="loc" data-v="${esc(l)}" aria-pressed="${locKey(d.location) === locKey(l)}"><span class="n">${esc(l)}</span></button>`).join('');
+    const recent = placeChoices();
+    const locChips = recent.slice(0, 6).map((l) => `<button type="button" class="chip" data-act="loc" data-v="${esc(l)}" aria-pressed="${locKey(d.location) === locKey(l)}"><span class="n">${esc(l)}</span></button>`).join('');
     const cardOptions = S.cards.map((c) => `<option value="${esc(c.id)}"${d.cardId === c.id ? ' selected' : ''}>${esc(c.name)} · ${esc(unitName(c.holders))}</option>`).join('');
     const who = S.people.map((p) => `<button type="button" class="chip" data-act="who" data-id="${esc(p.id)}" aria-pressed="${d.weights[p.id] > 0}"><span class="n">${esc(p.name)}</span></button>`).join('');
     const steppers = d.splitMode === 'shares' ? S.people.filter((p) => d.weights[p.id] > 0).map((p) => `<div class="personrow">${avatar(p.id)}<span class="grow">${esc(p.name)}</span><span class="stepper"><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="-1" aria-label="Fewer shares for ${esc(p.name)}">−</button><b>${d.weights[p.id]}</b><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="1" aria-label="More shares for ${esc(p.name)}">+</button></span></div>`).join('') : '';

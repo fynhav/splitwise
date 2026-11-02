@@ -30,11 +30,13 @@ const bad = (msg, code, status) => new HttpError(status || 400, msg, code || 'ba
 const newId = () => crypto.randomBytes(5).toString('hex');
 const nowIso = () => new Date().toISOString();
 
+const DEFAULT_LOCATIONS = ['Panama City', 'Pearl Islands', 'Altos de Cerro Azul'];
+
 function seedState() {
   return {
     version: 1,
     trip: { name: 'Panama' },
-    settings: { baseCurrency: 'GBP', householdsOn: true },
+    settings: { baseCurrency: 'GBP', householdsOn: true, locations: [...DEFAULT_LOCATIONS] },
     people: [{ id: 'fynn', name: 'Fynn' }, { id: 'tara', name: 'Tara' }, { id: 'max', name: 'Max' }],
     cards: [
       { id: 'shared', name: 'Shared card', holders: ['fynn', 'tara'] },
@@ -81,6 +83,11 @@ function createApp(opts = {}) {
     try {
       state = JSON.parse(await fsp.readFile(file, 'utf8'));
       await fsp.copyFile(file, file + '.bak').catch(() => {});
+      if (!Array.isArray(state.settings.locations)) { // data saved before locations existed
+        state.settings.locations = [...DEFAULT_LOCATIONS];
+        state.version += 1;
+        await write(state);
+      }
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
       state = seedState();
@@ -466,7 +473,7 @@ function createApp(opts = {}) {
   return { server, ready, dataDir, getState: () => state, close: () => new Promise((r) => server.close(r)) };
 }
 
-module.exports = { createApp, seedState };
+module.exports = { createApp, seedState, DEFAULT_LOCATIONS };
 
 if (require.main === module) {
   const onRailway = !!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);

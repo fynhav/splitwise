@@ -298,3 +298,15 @@ test('expenses keep a tidied location and it appears in the CSV', async () => {
   assert.match(text.split('\n')[0], /^Date,Location,Title/);
   assert.match(text, /Panama City/);
 });
+
+test('default places are seeded and added to data saved before they existed', async () => {
+  const t = await boot();
+  assert.deepEqual((await t.call('GET', '/api/state')).data.settings.locations, ['Panama City', 'Pearl Islands', 'Altos de Cerro Azul']);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trip-old-'));
+  const old = { version: 7, trip: { name: 'Panama' }, settings: { baseCurrency: 'GBP', householdsOn: true }, people: [{ id: 'fynn', name: 'Fynn' }], cards: [{ id: 'shared', name: 'Shared card', holders: ['fynn'] }], households: [], expenses: [], settlements: [] };
+  fs.writeFileSync(path.join(dir, 'trip.json'), JSON.stringify(old));
+  const t2 = await boot({ dataDir: dir });
+  const st = (await t2.call('GET', '/api/state')).data;
+  assert.deepEqual(st.settings.locations, ['Panama City', 'Pearl Islands', 'Altos de Cerro Azul']);
+  assert.equal(st.version, 8);
+});
