@@ -161,20 +161,22 @@
     if (x.getMonth() === y.getMonth() && x.getFullYear() === y.getFullYear()) return `${x.getDate()}–${shortDate(b)}`;
     return `${shortDate(a)} – ${shortDate(b)}`;
   }
-  // Consecutive expenses at the same place become one group, so a few days in one spot read as one block.
+  // One block per place, however the entries were interleaved. Blocks are ordered by their latest expense.
   function groupByLocation(exps) {
     const groups = [];
+    const byKey = new Map();
     for (const e of exps) {
       const k = locKey(e.location);
-      const g = groups[groups.length - 1];
-      if (g && g.key === k) { g.items.push(e); continue; }
-      groups.push({ key: k, name: e.location || '', items: [e] });
+      let g = byKey.get(k);
+      if (!g) { g = { key: k, name: e.location || '', items: [] }; byKey.set(k, g); groups.push(g); }
+      g.items.push(e);
     }
     for (const g of groups) {
-      g.last = g.items[0].date;
-      g.first = g.items[g.items.length - 1].date;
+      const dates = g.items.map((e) => e.date).sort();
+      g.first = dates[0];
+      g.last = dates[dates.length - 1];
       g.total = g.items.reduce((n, e) => n + e.baseMinor, 0);
-      g.id = `${g.key}|${g.first}`;
+      g.id = g.key;
     }
     return groups;
   }
