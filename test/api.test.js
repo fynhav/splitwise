@@ -348,6 +348,7 @@ test('place photos: picks a free wide JPEG from the article images, skips maps, 
   const credits = await (await fetch(t.base + '/photos/credits.json')).json();
   assert.deepEqual(Object.keys(credits).sort(), ['panama-city', 'pearl-islands']);
   assert.equal(credits['panama-city'].credit, 'Photo: Someone · Public domain');
+  assert.match(credits['panama-city'].rev, /^\d+$/, 'credits carry a revision so the picture URL changes with the photo');
   assert.equal(credits['pearl-islands'].credit, 'Photo: Jane & Co · CC BY-SA 4.0', 'skipped the map, the portrait and the non-free file');
   assert.match(credits['pearl-islands'].url, /commons\.wikimedia\.org/);
   assert.equal((await fetch(t.base + '/photos/altos-de-cerro-azul.jpg')).status, 404, 'no usable photo keeps the illustration');
@@ -426,4 +427,18 @@ test('place photos: searches Commons for beach shots whose names tie them to the
   assert.equal(credits['pearl-islands'].file, 'Contadora beach sunset.jpg', 'a beach photo found by search beats the boulevard, and a wreck is ranked last');
   assert.ok(searches.some((q) => q.startsWith('Contadora beach') && q.endsWith('filetype:bitmap')));
   assert.equal(credits['panama-city'], undefined, 'strict places keep the illustration when nothing fits');
+});
+
+test('the page carries a build id that /api/build reports, so open apps can reload when it changes', async () => {
+  const t2 = await boot();
+  try {
+    const html = await (await fetch(t2.base + '/')).text();
+    const m = /<meta name="build" content="([0-9a-f]{10})">/.exec(html);
+    assert.ok(m, 'build meta is filled in');
+    assert.ok(!html.includes('__BUILD__'));
+    assert.match(html, new RegExp(`/app\\.js\\?v=${m[1]}`));
+    const r = await fetch(t2.base + '/api/build');
+    assert.equal(r.headers.get('cache-control'), 'no-store');
+    assert.equal((await r.json()).build, m[1]);
+  } finally { await t2.close(); }
 });

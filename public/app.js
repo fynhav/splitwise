@@ -203,7 +203,7 @@
     const slug = PLACE_SLUG[locKey(name)];
     const art = `url('/places/${slug || 'generic'}.svg')`;
     const hasPhoto = slug && photoCredits[slug];
-    const bg = hasPhoto ? `url('/photos/${slug}.jpg'),${art}` : art;
+    const bg = hasPhoto ? `url('/photos/${slug}.jpg?v=${encodeURIComponent(photoCredits[slug].rev || '')}'),${art}` : art;
     return `<div class="placepic" role="img" aria-label="Picture of ${esc(name)}" style="background-image:${bg}"></div>`;
   }
   function newDraft(e) {
@@ -674,7 +674,25 @@
     if (was !== route && route === 'trip') refresh(true);
   }
 
+  // Reload when the server has a newer version of the app, so nobody keeps running an old copy.
+  const myBuild = (document.querySelector('meta[name="build"]') || {}).content || '';
+  async function checkBuild() {
+    if (!myBuild || /__BUILD__/.test(myBuild)) return;
+    try {
+      const r = await fetch('/api/build', { cache: 'no-store' });
+      if (!r.ok) return;
+      const { build } = await r.json();
+      if (!build || build === myBuild) return;
+      if (route === 'add' && draft && (draft.title || draft.amount)) return; // do not wipe a half-typed expense; try again later
+      const last = Number(ck.get('build_reload') || 0);
+      if (Date.now() - last < 20000) return; // guard against a reload loop
+      ck.set('build_reload', String(Date.now()));
+      location.reload();
+    } catch (e) { /* offline: keep what we have */ }
+  }
+
   async function boot() {
+    checkBuild();
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* optional */ }
     try { const c = ls.get('cache'); if (c) S = JSON.parse(c); } catch (e) { S = null; } // instant first paint, and data while offline
     try {
@@ -691,7 +709,9 @@
     setInterval(loadPhotoCredits, 5 * 60 * 1000);
     window.addEventListener('hashchange', onRoute);
     setInterval(() => refresh(false), 5000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(false); loadPhotoCredits(); checkBuild(); } });
+    window.addEventListener('pageshow', () => { checkBuild(); loadPhotoCredits(); });
+    setInterval(checkBuild, 60 * 1000);
   }
   boot();
 })();

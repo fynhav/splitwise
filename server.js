@@ -14,6 +14,21 @@ const { createRates } = require('./lib/rates.js');
 const { createPhotos } = require('./lib/photos.js');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+/** A fingerprint of everything the browser loads. When it changes, open apps reload themselves. */
+function computeBuild() {
+  const h = crypto.createHash('sha1');
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const p = path.join(dir, name);
+      if (fs.statSync(p).isDirectory()) walk(p);
+      else { h.update(path.relative(PUBLIC_DIR, p)); h.update(fs.readFileSync(p)); }
+    }
+  };
+  walk(PUBLIC_DIR);
+  return h.digest('hex').slice(0, 10);
+}
+const BUILD = computeBuild();
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml',
@@ -427,8 +442,9 @@ function createApp(opts = {}) {
     const full = path.normalize(path.join(PUBLIC_DIR, rel));
     if (!full.startsWith(PUBLIC_DIR + path.sep) || path.basename(full).startsWith('.')) return send(res, 404, { error: 'not_found' });
     try {
-      const data = await fsp.readFile(full);
+      let data = await fsp.readFile(full);
       const ext = path.extname(full).toLowerCase();
+      if (ext === '.html') data = Buffer.from(data.toString('utf8').replace(/__BUILD__/g, BUILD));
       res.writeHead(200, {
         'content-type': MIME[ext] || 'application/octet-stream',
         'cache-control': 'no-cache',
@@ -445,12 +461,13 @@ function createApp(opts = {}) {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/api/health') return send(res, 200, { ok: true });
+      if (url.pathname === '/api/build') return send(res, 200, { build: BUILD }, { 'cache-control': 'no-store' });
       if (url.pathname.startsWith('/photos/')) { // generic place photos from Wikimedia: not private, so no PIN
         if (url.pathname === '/photos/credits.json') return send(res, 200, await photos.credits(), { 'cache-control': 'no-cache' });
         const m = /^\/photos\/([a-z0-9-]+)\.jpg$/.exec(url.pathname);
         const buf = m && (await photos.read(m[1]));
         if (!buf) return send(res, 404, { error: 'not_found' });
-        res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+        res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
         return res.end(buf);
       }
       if (url.pathname === '/api/auth-required') return send(res, 200, { pin: !!pinDigest, authed: !pinDigest || hasSession(req) });
