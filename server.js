@@ -52,7 +52,7 @@ function seedState() {
   return {
     version: 1,
     trip: { name: 'Panama' },
-    settings: { baseCurrency: 'GBP', householdsOn: true, locations: [...DEFAULT_LOCATIONS] },
+    settings: { baseCurrency: 'GBP', householdsOn: false, householdsDefaultedOff: true, locations: [...DEFAULT_LOCATIONS] },
     people: [{ id: 'fynn', name: 'Fynn' }, { id: 'tara', name: 'Tara' }, { id: 'max', name: 'Max' }],
     cards: [
       { id: 'shared', name: 'Shared card', holders: ['fynn', 'tara'] },
@@ -100,8 +100,17 @@ function createApp(opts = {}) {
     try {
       state = JSON.parse(await fsp.readFile(file, 'utf8'));
       await fsp.copyFile(file, file + '.bak').catch(() => {});
+      let changed = false;
       if (!Array.isArray(state.settings.locations)) { // data saved before locations existed
         state.settings.locations = [...DEFAULT_LOCATIONS];
+        changed = true;
+      }
+      if (!state.settings.householdsDefaultedOff) { // everyone settles individually unless they tick the household box again
+        state.settings.householdsOn = false;
+        state.settings.householdsDefaultedOff = true;
+        changed = true;
+      }
+      if (changed) {
         state.version += 1;
         await write(state);
       }

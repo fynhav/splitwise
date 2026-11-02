@@ -99,9 +99,15 @@ test('own cards for Fynn and Tara settle correctly end to end', async () => {
   await t.call('POST', '/api/expenses', ex({ title: 'Taxi', amount: '60', cardId: 'tara-own' }));
   await t.call('POST', '/api/expenses', ex({ title: 'Dinner', amount: '90', cardId: 'shared' }));
   await t.call('POST', '/api/expenses', ex({ title: 'Boat', amount: '120', cardId: 'max-own' }));
+  const { data: s0 } = await t.call('GET', '/api/state');
+  assert.deepEqual(L.settlementPlan(s0).transfers, [
+    { from: ['tara'], to: ['fynn'], baseMinor: 8500 },
+    { from: ['max'], to: ['fynn'], baseMinor: 7000 },
+  ], 'individuals by default: Tara settles with Fynn too');
+  await t.call('PUT', '/api/settings', { householdsOn: true });
   const { data: s } = await t.call('GET', '/api/state');
   const plan = L.settlementPlan(s);
-  assert.deepEqual(plan.transfers, [{ from: ['max'], to: ['fynn', 'tara'], baseMinor: 7000 }]);
+  assert.deepEqual(plan.transfers, [{ from: ['max'], to: ['fynn', 'tara'], baseMinor: 7000 }], 'as a household only Max pays');
   // record the payment, then everything is square
   const pay = await t.call('POST', '/api/settlements', { from: 'max', to: 'fynn', amount: '70.00' });
   assert.equal(pay.status, 201);
@@ -309,6 +315,18 @@ test('default places are seeded and added to data saved before they existed', as
   const st = (await t2.call('GET', '/api/state')).data;
   assert.deepEqual(st.settings.locations, ['Panama City', 'Pearl Islands', 'Altos de Cerro Azul']);
   assert.equal(st.version, 8);
+  assert.equal(st.settings.householdsOn, false, 'older data that had households on is switched to individuals once');
+  const put = await t2.call('PUT', '/api/settings', { householdsOn: true });
+  assert.equal(put.status, 200);
+  await t2.close();
+  const t3 = await boot({ dataDir: dir });
+  assert.equal((await t3.call('GET', '/api/state')).data.settings.householdsOn, true, 'ticking it again sticks across restarts');
+  await t3.close();
+});
+
+test('new trips settle as individuals by default', async () => {
+  const t = await boot();
+  assert.equal((await t.call('GET', '/api/state')).data.settings.householdsOn, false);
 });
 
 test('place photos: picks a free wide JPEG from the article images, skips maps, portraits and non-free files', async () => {
