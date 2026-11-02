@@ -311,25 +311,30 @@ test('default places are seeded and added to data saved before they existed', as
   assert.equal(st.version, 8);
 });
 
-test('place photos: keeps a free landscape JPEG with credit, skips maps and non-free files', async () => {
+test('place photos: picks a free wide JPEG from the article images, skips maps, portraits and non-free files', async () => {
   const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(8000, 1)]);
   const calls = [];
+  const json = (o) => ({ ok: true, status: 200, json: async () => o });
+  const ok = (o) => json(o);
+  const imgs = {
+    'Pearl map.png': { mime: 'image/png', width: 2000, height: 1500, thumburl: 'u/m.png', extmetadata: { LicenseShortName: { value: 'CC BY 3.0' } } },
+    'Tall beach.jpg': { mime: 'image/jpeg', width: 1500, height: 2400, thumburl: 'u/t.jpg', extmetadata: { LicenseShortName: { value: 'CC BY 3.0' } } },
+    'Fair use shot.jpg': { mime: 'image/jpeg', width: 2400, height: 1200, thumburl: 'u/f.jpg', extmetadata: { LicenseShortName: { value: 'Non-free use rationale' } } },
+    'Contadora lagoon.jpg': { mime: 'image/jpeg', width: 3000, height: 1800, thumburl: 'https://upload.wikimedia.org/thumb/c.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Contadora_lagoon.jpg', extmetadata: { LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: '<a href="x">Jane &amp; Co</a>' } } },
+    'Panama skyline.jpg': { mime: 'image/jpeg', width: 3000, height: 1500, thumburl: 'https://upload.wikimedia.org/thumb/p.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Panama_skyline.jpg', extmetadata: { LicenseShortName: { value: 'Public domain' }, Artist: { value: 'Someone' } } },
+  };
   const fetchImpl = async (url) => {
     calls.push(url);
-    const json = (o) => ({ ok: true, status: 200, json: async () => o });
-    if (url.includes('/page/summary/Panama_City')) return json({ originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Panama_skyline.jpg' } });
-    if (url.includes('/page/summary/Contadora_Island')) return json({ originalimage: { source: 'https://upload.wikimedia.org/wikipedia/en/c/cd/Nonfree_logo.png' } });
-    if (url.includes('/page/summary/Pearl_Islands')) return json({ originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Pearl_map.png' } });
-    if (url.includes('/page/summary/Isla_del_Rey')) return json({ originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/9/99/Beach.jpg' } });
-    if (url.includes('/page/summary/')) return json({});
+    if (url.includes('/page/summary/Panama_City')) return ok({ originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Panama_skyline.jpg' } });
+    if (url.includes('/page/summary/')) return ok({});
+    if (url.includes('/page/media-list/Panama_City')) return ok({ items: [] });
+    if (url.includes('/page/media-list/Contadora_Island')) return ok({ items: [{ type: 'image', title: 'File:Pearl_map.png' }, { type: 'image', title: 'File:Pearl_locator_map.jpg' }, { type: 'image', title: 'File:Tall_beach.jpg' }, { type: 'image', title: 'File:Fair_use_shot.jpg' }, { type: 'image', title: 'File:Contadora_lagoon.jpg' }] });
+    if (url.includes('/page/media-list/')) return ok({ items: [] });
     if (url.includes('commons.wikimedia.org/w/api.php')) {
-      const t = decodeURIComponent(url.split('titles=')[1]);
-      const mk = (o) => json({ query: { pages: [{ imageinfo: [o] }] } });
-      if (t === 'File:Panama_skyline.jpg') return mk({ mime: 'image/jpeg', width: 3000, height: 1500, thumburl: 'https://upload.wikimedia.org/thumb/p.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Panama_skyline.jpg', extmetadata: { LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: '<a href="x">Jane &amp; Co</a>' } } });
-      if (t === 'File:Pearl_map.png') return mk({ mime: 'image/png', width: 800, height: 600, thumburl: 'https://upload.wikimedia.org/thumb/m.png', extmetadata: { LicenseShortName: { value: 'CC BY 3.0' } } });
-      if (t === 'File:Beach.jpg') return mk({ mime: 'image/jpeg', width: 1000, height: 1400, thumburl: 'https://upload.wikimedia.org/thumb/b.jpg', extmetadata: { LicenseShortName: { value: 'CC BY 3.0' } } });
+      const titles = decodeURIComponent(url.split('titles=')[1]).split('|').map((x) => x.replace(/^File:/, ''));
+      return ok({ query: { pages: titles.filter((n) => imgs[n]).map((n) => ({ title: 'File:' + n, imageinfo: [imgs[n]] })) } });
     }
-    if (url === 'https://upload.wikimedia.org/thumb/p.jpg') return { ok: true, status: 200, headers: new Headers({ 'content-type': 'image/jpeg' }), arrayBuffer: async () => jpeg };
+    if (url === 'https://upload.wikimedia.org/thumb/p.jpg' || url === 'https://upload.wikimedia.org/thumb/c.jpg') return { ok: true, status: 200, headers: new Headers({ 'content-type': 'image/jpeg' }), arrayBuffer: async () => jpeg };
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const t = await boot({ fetchImpl, log: () => {} });
@@ -340,14 +345,15 @@ test('place photos: keeps a free landscape JPEG with credit, skips maps and non-
   assert.equal(got.headers.get('content-type'), 'image/jpeg');
   assert.equal(Buffer.from(await got.arrayBuffer()).length, jpeg.length);
   const credits = await (await fetch(t.base + '/photos/credits.json')).json();
-  assert.deepEqual(Object.keys(credits), ['panama-city']);
-  assert.equal(credits['panama-city'].credit, 'Photo: Jane & Co · CC BY-SA 4.0');
-  assert.match(credits['panama-city'].url, /commons\.wikimedia\.org/);
-  assert.equal((await fetch(t.base + '/photos/pearl-islands.jpg')).status, 404, 'a map and a portrait are rejected');
+  assert.deepEqual(Object.keys(credits).sort(), ['panama-city', 'pearl-islands']);
+  assert.equal(credits['panama-city'].credit, 'Photo: Someone · Public domain');
+  assert.equal(credits['pearl-islands'].credit, 'Photo: Jane & Co · CC BY-SA 4.0', 'skipped the map, the portrait and the non-free file');
+  assert.match(credits['pearl-islands'].url, /commons\.wikimedia\.org/);
+  assert.equal((await fetch(t.base + '/photos/altos-de-cerro-azul.jpg')).status, 404, 'no usable photo keeps the illustration');
   assert.equal((await fetch(t.base + '/photos/..%2Ftrip.jpg')).status, 404);
   const before = calls.length;
-  await t.app.photos.ensureAll(); // panama-city is cached; only the missing places are retried
-  assert.ok(!calls.slice(before).some((u) => u.includes('Panama_City')));
+  await t.app.photos.ensureAll(); // cached places are not fetched again
+  assert.ok(!calls.slice(before).some((u) => u.includes('Panama_City') || u.includes('Contadora')));
 });
 
 test('photos are public but the expense API still needs the PIN', async () => {
