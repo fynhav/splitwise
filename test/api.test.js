@@ -330,7 +330,7 @@ test('place photos: picks a free wide JPEG from the article images, skips maps, 
     if (url.includes('/page/media-list/Panama_City')) return ok({ items: [] });
     if (url.includes('/page/media-list/Contadora_Island')) return ok({ items: [{ type: 'image', title: 'File:Pearl_map.png' }, { type: 'image', title: 'File:Pearl_locator_map.jpg' }, { type: 'image', title: 'File:Tall_beach.jpg' }, { type: 'image', title: 'File:Fair_use_shot.jpg' }, { type: 'image', title: 'File:Contadora_lagoon.jpg' }] });
     if (url.includes('/page/media-list/')) return ok({ items: [] });
-    if (url.includes('generator=search')) return ok({ query: { pages: [] } });
+    if (/generator=(search|categorymembers)/.test(url)) return ok({ query: { pages: [] } });
     if (url.includes('commons.wikimedia.org/w/api.php')) {
       const titles = decodeURIComponent(url.split('titles=')[1]).split('|').map((x) => x.replace(/^File:/, ''));
       return ok({ query: { pages: titles.filter((n) => imgs[n]).map((n) => ({ title: 'File:' + n, imageinfo: [imgs[n]] })) } });
@@ -372,7 +372,7 @@ test('place photos: ranks place-like names first, never uses unrelated files for
     if (url.includes('/media-list/Panama_City')) return ok({ items: ['Panama_Papers_(1).jpeg', 'Street_market.jpg', 'Casco_antiguo_plazita.jpg', 'Panama_City_skyline_at_dusk.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
     if (url.includes('/media-list/Contadora_Island')) return ok({ items: ['Main_boulevard.jpg', 'Playa_Galeon_Villa.jpg', 'Playa_Galeon_beach.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
     if (url.includes('/media-list/Cerro_Azul')) return ok({ items: [{ type: 'image', title: 'File:Plain_house.jpg' }] });
-    if (url.includes('generator=search')) return ok({ query: { pages: [] } });
+    if (/generator=(search|categorymembers)/.test(url)) return ok({ query: { pages: [] } });
     if (url.includes('commons.wikimedia.org/w/api.php')) {
       const titles = decodeURIComponent(url.split('titles=')[1]).split('|').map((x) => x.replace(/^File:/, ''));
       return ok({ query: { pages: titles.map((n) => ({ title: 'File:' + n, imageinfo: [mk(n, 'https://upload.wikimedia.org/thumb/' + n)] })) } });
@@ -398,11 +398,15 @@ test('place photos: searches Commons for beach shots whose names tie them to the
   const mk = (n) => ({ mime: 'image/jpeg', width: 3000, height: 1800, thumburl: 'https://upload.wikimedia.org/thumb/' + n, descriptionurl: 'https://commons.wikimedia.org/wiki/File:' + n, extmetadata: { LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: 'Pat' } } });
   const searches = [];
   const fetchImpl = async (url) => {
+    if (url.includes('generator=categorymembers')) {
+      const cat = decodeURIComponent(url.split('gcmtitle=')[1].split('&')[0]);
+      return ok({ query: { pages: cat === 'Category:Beaches of Panama' ? [{ title: 'File:Bocas del Toro beach.jpg', imageinfo: [mk('Bocas del Toro beach.jpg')] }, { title: 'File:Rusty ruin.png', imageinfo: [mk('Rusty ruin.png')] }] : [] } });
+    }
     if (url.includes('generator=search')) {
       const q = decodeURIComponent(url.split('gsrsearch=')[1].split('&')[0]);
       searches.push(q);
       const files = q.startsWith('Contadora beach')
-        ? ['Contadora beach sunset.jpg', 'Pearl Beach NSW Australia.jpg', 'Contadora hotel lobby.jpg', 'Panama beach map.jpg']
+        ? ['Contadora beach wreck (1).jpg', 'Contadora beach sunset.jpg', 'Pearl Beach NSW Australia.jpg', 'Contadora hotel lobby.jpg', 'Panama beach map.jpg']
         : [];
       return ok({ query: { pages: files.map((n) => ({ title: 'File:' + n, imageinfo: [mk(n)] })) } });
     }
@@ -419,7 +423,7 @@ test('place photos: searches Commons for beach shots whose names tie them to the
   const t = await boot({ fetchImpl, log: () => {} });
   await t.app.photos.ensureAll();
   const credits = await (await fetch(t.base + '/photos/credits.json')).json();
-  assert.equal(credits['pearl-islands'].file, 'Contadora beach sunset.jpg', 'a beach photo found by search beats the boulevard from the article');
+  assert.equal(credits['pearl-islands'].file, 'Contadora beach sunset.jpg', 'a beach photo found by search beats the boulevard, and a wreck is ranked last');
   assert.ok(searches.some((q) => q.startsWith('Contadora beach') && q.endsWith('filetype:bitmap')));
   assert.equal(credits['panama-city'], undefined, 'strict places keep the illustration when nothing fits');
 });
