@@ -11,6 +11,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const L = require('./public/ledger.js');
 const { createRates } = require('./lib/rates.js');
+const { createPhotos } = require('./lib/photos.js');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MIME = {
@@ -54,6 +55,7 @@ function createApp(opts = {}) {
   const dataDir = opts.dataDir || process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
   const pin = opts.pin !== undefined ? opts.pin : process.env.TRIP_PIN || '';
   const rates = opts.ratesProvider || createRates({ dataDir });
+  const photos = createPhotos({ dataDir, fetchImpl: opts.fetchImpl, log: opts.log });
   const file = path.join(dataDir, 'trip.json');
   let state = null;
   let chain = Promise.resolve();
@@ -443,6 +445,14 @@ function createApp(opts = {}) {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/api/health') return send(res, 200, { ok: true });
+      if (url.pathname.startsWith('/photos/')) { // generic place photos from Wikimedia: not private, so no PIN
+        if (url.pathname === '/photos/credits.json') return send(res, 200, await photos.credits(), { 'cache-control': 'no-cache' });
+        const m = /^\/photos\/([a-z0-9-]+)\.jpg$/.exec(url.pathname);
+        const buf = m && (await photos.read(m[1]));
+        if (!buf) return send(res, 404, { error: 'not_found' });
+        res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+        return res.end(buf);
+      }
       if (url.pathname === '/api/auth-required') return send(res, 200, { pin: !!pinDigest, authed: !pinDigest || hasSession(req) });
       if (url.pathname === '/api/login' && req.method === 'POST') {
         if (!pinDigest) return send(res, 200, { ok: true });
@@ -470,7 +480,7 @@ function createApp(opts = {}) {
   });
 
   const ready = load();
-  return { server, ready, dataDir, getState: () => state, close: () => new Promise((r) => server.close(r)) };
+  return { server, ready, dataDir, photos, getState: () => state, close: () => new Promise((r) => server.close(r)) };
 }
 
 module.exports = { createApp, seedState, DEFAULT_LOCATIONS };
@@ -492,6 +502,7 @@ if (require.main === module) {
     app.server.listen(port, host, () => {
       console.log(`Panama splitter on http://${host}:${port}  (data: ${app.dataDir})`);
       if (!process.env.TRIP_PIN) console.log('No TRIP_PIN set: fine inside a private tailnet, set one before using Tailscale Funnel.');
+      if (process.env.PLACE_PHOTOS !== '0') app.photos.ensureAll().catch((err) => console.error('place photos:', err.message));
     });
   }).catch((err) => {
     console.error('Failed to start:', err);

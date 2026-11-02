@@ -187,4 +187,6 @@ select { appearance: auto; }
 .gchev { display: inline-flex; color: var(--muted); transform: rotate(90deg); transition: transform .15s; }
 .gchev.open { transform: rotate(-90deg); }
 .grouprows { display: flex; flex-direction: column; gap: 12px; }
-.placepic { height: 104px; border-radius: 22px; margin: 0 0 12px; background: #A9C2AE center / cover no-repeat; box-shadow: var(--shadow); }
+.placepic { position: relative; height: 120px; border-radius: 22px; margin: 0 0 12px; background: #A9C2AE center / cover no-repeat; box-shadow: var(--shadow); }
+
+.photocredit { position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 3px 9px; border-radius: 10px; background: rgba(250, 247, 239, 0.88); color: #24362E; font-size: 10px; line-height: 1.3; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -182,12 +182,25 @@
   }
   const collapsedGroups = new Set();
   // One picture per place. To use a real photo, drop the file in public/places/ and point the entry at it.
-  const PLACE_ART = {
-    'panama city': '/places/panama-city.svg',
-    'pearl islands': '/places/pearl-islands.svg',
-    'altos de cerro azul': '/places/altos-de-cerro-azul.svg',
-  };
-  const placeArt = (name) => PLACE_ART[locKey(name)] || '/places/generic.svg';
+  const PLACE_SLUG = { 'panama city': 'panama-city', 'pearl islands': 'pearl-islands', 'altos de cerro azul': 'altos-de-cerro-azul' };
+  let photoCredits = {}; // slug -> { credit, url } for places whose Wikimedia photo is cached on the server
+  async function loadPhotoCredits() {
+    try {
+      const r = await fetch('/photos/credits.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      const next = await r.json();
+      if (JSON.stringify(next) !== JSON.stringify(photoCredits)) { photoCredits = next; if (S && route === 'trip') renderView(); }
+    } catch (e) { /* offline: keep what we have */ }
+  }
+  // The real photo when the server has one (it sits on top), otherwise the bundled illustration underneath.
+  function placePic(name) {
+    const slug = PLACE_SLUG[locKey(name)];
+    const art = `url('/places/${slug || 'generic'}.svg')`;
+    const hasPhoto = slug && photoCredits[slug];
+    const bg = hasPhoto ? `url('/photos/${slug}.jpg'),${art}` : art;
+    const credit = hasPhoto ? `<a class="photocredit" href="${esc(photoCredits[slug].url)}" target="_blank" rel="noopener">${esc(photoCredits[slug].credit)}</a>` : '';
+    return `<div class="placepic" role="img" aria-label="Picture of ${esc(name)}" style="background-image:${bg}">${credit}</div>`;
+  }
   function newDraft(e) {
     const b = base();
     if (e) {
@@ -255,7 +268,7 @@
         return `<section class="locgroup"><button type="button" class="grouphead" data-act="toggleGroup" data-id="${esc(g.id)}" aria-expanded="${open}">
           <span class="gname">${esc(g.name || 'No location')}<span class="gdates">${esc(rangeLabel(g.first, g.last))} · ${g.items.length} expense${g.items.length === 1 ? '' : 's'}</span></span>
           <span class="gtotal">${esc(fmt(g.total))}</span><span class="gchev${open ? ' open' : ''}" aria-hidden="true">${ICON.chev}</span></button>
-          ${open ? `${g.key ? `<div class="placepic" role="img" aria-label="Picture of ${esc(g.name)}" style="background-image:url('${esc(placeArt(g.name))}')"></div>` : ''}<div class="grouprows">${g.items.map(rowOf).join('')}</div>` : ''}</section>`;
+          ${open ? `${g.key ? placePic(g.name) : ''}<div class="grouprows">${g.items.map(rowOf).join('')}</div>` : ''}</section>`;
       }).join('')
       : exps.map(rowOf).join('');
     return `<div class="stack">
@@ -668,6 +681,8 @@
     renderApp();
     if (!needsPin) await refresh(true);
     loadRates();
+    loadPhotoCredits();
+    setInterval(loadPhotoCredits, 5 * 60 * 1000);
     window.addEventListener('hashchange', onRoute);
     setInterval(() => refresh(false), 5000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(false); });
