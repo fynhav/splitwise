@@ -60,6 +60,8 @@ HOST=0.0.0.0 node server.js     # then browse to http://100.x.y.z:3000 from insi
 
 On iPhone, open the address in Safari, then Share, Add to Home Screen. It opens full screen with the header band under the status bar.
 
+**Staying signed in:** a Home Screen app keeps its own storage, separate from Safari, so enter the PIN and pick your name once inside the Home Screen app. The server then sets a 400-day cookie, and the PIN, your name and the last data are also kept on the phone, so you are not asked again and the last data shows instantly or offline. Changing `TRIP_PIN` signs everyone out.
+
 ## Host it on Railway
 
 No Tailscale and no Mac mini needed. Everyone opens a normal https link in Safari.

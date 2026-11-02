@@ -57,10 +57,23 @@ function createApp(opts = {}) {
   let chain = Promise.resolve();
 
   const pinDigest = pin ? crypto.createHash('sha256').update(pin).digest() : null;
+  // Long-lived session cookie: derived from the PIN, so changing the PIN signs everyone out.
+  const COOKIE = 'trip_auth';
+  const COOKIE_MAX_AGE = 400 * 24 * 3600; // browsers cap cookie lifetime at about 400 days
+  const sessionToken = pin ? crypto.createHmac('sha256', pin).update('trip-session-v1').digest('hex') : '';
+  const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
+  const pinOk = (given) => crypto.timingSafeEqual(sha(given), pinDigest);
+  function cookieOf(req, name) {
+    for (const part of String(req.headers.cookie || '').split(';')) {
+      const i = part.indexOf('=');
+      if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+    }
+    return '';
+  }
+  const hasSession = (req) => !!sessionToken && crypto.timingSafeEqual(sha(cookieOf(req, COOKIE)), sha(sessionToken));
   function checkPin(req) {
     if (!pinDigest) return true;
-    const given = crypto.createHash('sha256').update(String(req.headers['x-trip-pin'] || '')).digest();
-    return crypto.timingSafeEqual(given, pinDigest);
+    return pinOk(req.headers['x-trip-pin'] || '') || hasSession(req);
   }
 
   async function load() {
@@ -422,7 +435,17 @@ function createApp(opts = {}) {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/api/health') return send(res, 200, { ok: true });
-      if (url.pathname === '/api/auth-required') return send(res, 200, { pin: !!pinDigest });
+      if (url.pathname === '/api/auth-required') return send(res, 200, { pin: !!pinDigest, authed: !pinDigest || hasSession(req) });
+      if (url.pathname === '/api/login' && req.method === 'POST') {
+        if (!pinDigest) return send(res, 200, { ok: true });
+        const body = await readBody(req);
+        if (!pinOk((body && body.pin) || '')) {
+          await new Promise((r) => setTimeout(r, 400));
+          return send(res, 401, { error: 'pin_required', message: 'Wrong PIN' });
+        }
+        const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+        return send(res, 200, { ok: true }, { 'set-cookie': `${COOKIE}=${sessionToken}; Max-Age=${COOKIE_MAX_AGE}; Path=/; HttpOnly; SameSite=Lax${secure}` });
+      }
       if (url.pathname.startsWith('/api/')) {
         if (!checkPin(req)) {
           await new Promise((r) => setTimeout(r, 400));

@@ -259,3 +259,24 @@ test('Railway mode: refuses without a PIN or a volume, and binds all interfaces 
     ok.p.kill();
   }
 });
+
+test('PIN login sets a long-lived session cookie that replaces the header', async () => {
+  const t = await boot({ pin: '4321' });
+  const bad = await t.call('POST', '/api/login', { pin: 'nope' });
+  assert.equal(bad.status, 401);
+  const ok = await fetch(t.base + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pin: '4321' }) });
+  assert.equal(ok.status, 200);
+  const cookie = ok.headers.get('set-cookie');
+  assert.match(cookie, /trip_auth=[0-9a-f]{64}/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /Max-Age=34560000/);
+  const pair = cookie.split(';')[0];
+  const withCookie = await fetch(t.base + '/api/state', { headers: { cookie: pair } });
+  assert.equal(withCookie.status, 200);
+  const auth = await (await fetch(t.base + '/api/auth-required', { headers: { cookie: pair } })).json();
+  assert.deepEqual(auth, { pin: true, authed: true });
+  const forged = await fetch(t.base + '/api/state', { headers: { cookie: 'trip_auth=' + '0'.repeat(64) } });
+  assert.equal(forged.status, 401);
+  const none = await (await fetch(t.base + '/api/auth-required')).json();
+  assert.equal(none.authed, false);
+});

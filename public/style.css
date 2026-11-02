@@ -110,7 +110,11 @@ input.big { font-family: var(--serif); font-weight: 600; font-size: 40px; line-h
 .btn.inline { width: auto; min-height: 44px; padding: 0 18px; }
 .btn[disabled] { opacity: 0.5; cursor: default; }
 .split { display: flex; gap: 10px; }
-.split > * { flex: 1; }
+.split > * { flex: 1 1 0; min-width: 0; }
+/* iOS gives date inputs an intrinsic width and extra height; force them to behave like the text inputs */
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
+.split input { height: 48px; line-height: 1.25; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; margin: 0; }
 .stepper { display: inline-flex; align-items: center; gap: 4px; }
 .stepper button { width: 36px; height: 36px; border-radius: 18px; border: 0; background: var(--sage); font-weight: 700; font-size: 18px; cursor: pointer; }
 .stepper b { min-width: 22px; text-align: center; }

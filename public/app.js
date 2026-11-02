@@ -6,6 +6,12 @@
   const ls = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } },
+  };
+  // Cookies survive some storage clears that localStorage does not, so identity is kept in both.
+  const ck = {
+    get(k) { const m = document.cookie.split('; ').find((c) => c.startsWith(k + '=')); return m ? decodeURIComponent(m.slice(k.length + 1)) : null; },
+    set(k, v) { document.cookie = `${k}=${encodeURIComponent(v)}; max-age=${400 * 24 * 3600}; path=/; SameSite=Lax`; },
   };
 
   const PALETTE = [['#A9C2AE', '#24362E'], ['#F0CDB4', '#24362E'], ['#B4543A', '#FFFFFF'], ['#9CC3B5', '#24362E'], ['#E8B093', '#24362E'], ['#C9B79B', '#24362E']];
@@ -27,7 +33,7 @@
   let route = 'trip';
   let draft = null;
   let pendingEdit = false;
-  let me = ls.get('me');
+  let me = ls.get('me') || ck.get('trip_me');
   let pin = ls.get('pin') || '';
   let toastTimer = null;
 
@@ -78,6 +84,7 @@
       if (res.status === 401) { needsPin = true; setOnline(true); renderApp(); return; }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       S = await res.json();
+      ls.set('cache', JSON.stringify(S));
       needsPin = false;
       setOnline(true);
       onState();
@@ -102,7 +109,10 @@
   }
   function onState() {
     if (!me || !person(me)) { renderApp(); openIdentity(); return; }
-    if (route === 'add') { renderHeaderOnly(); return; } // never wipe a form that is being typed into
+    if (route === 'add') {
+      if (!draft) { draft = newDraft(); renderApp(true); return; } // first load straight onto the Add tab
+      renderHeaderOnly(); return; // never wipe a form that is being typed into
+    }
     renderApp(true);
   }
 
@@ -385,7 +395,7 @@
   const actions = {
     closeSheet() { closeSheet(); },
     'who-me'() { openIdentity(); },
-    setMe(el) { me = el.dataset.id; ls.set('me', me); closeSheet(); renderApp(); },
+    setMe(el) { me = el.dataset.id; ls.set('me', me); ck.set('trip_me', me); closeSheet(); renderApp(); },
     settings() { openSettings(); },
     edit(el) {
       const e = S.expenses.find((x) => x.id === el.dataset.id);
@@ -524,8 +534,14 @@
   document.addEventListener('submit', async (e) => {
     if (e.target.id !== 'pinform') return;
     e.preventDefault();
-    pin = $('#pininput').value;
-    ls.set('pin', pin);
+    const entered = $('#pininput').value.trim();
+    try {
+      const res = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pin: entered }), cache: 'no-store' });
+      if (res.status === 401) { toast('Wrong PIN, try again'); $('#pininput').select(); return; }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } catch (err) { toast('Could not reach the server'); return; }
+    pin = entered;
+    ls.set('pin', pin); // the server also sets a 400-day cookie, so this is a backup
     needsPin = false;
     await refresh(true);
     loadRates();
@@ -548,12 +564,15 @@
   }
 
   async function boot() {
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* optional */ }
+    try { const c = ls.get('cache'); if (c) S = JSON.parse(c); } catch (e) { S = null; } // instant first paint, and data while offline
     try {
       const a = await fetch('/api/auth-required').then((r) => r.json());
-      needsPin = !!a.pin && !pin;
+      needsPin = !!a.pin && !a.authed && !pin;
     } catch (e) { /* server unreachable: refresh() will mark us offline */ }
     route = (location.hash || '#trip').slice(1);
     if (!views[route]) route = 'trip';
+    if (route === 'add' && S && !draft) draft = newDraft();
     renderApp();
     if (!needsPin) await refresh(true);
     loadRates();
