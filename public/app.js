@@ -443,7 +443,9 @@
   /* ---------- rendering ---------- */
   function headerHtml() {
     const t = TITLES[route]();
-    const meBtn = me && person(me) ? `<button type="button" class="avatar me" data-act="who-me" aria-label="Signed in as ${esc(pname(me))}. Switch person." style="background:${PALETTE[Math.max(0, S.people.findIndex((p) => p.id === me)) % PALETTE.length][0]};color:${PALETTE[Math.max(0, S.people.findIndex((p) => p.id === me)) % PALETTE.length][1]}">${esc((pname(me)[0] || '?').toUpperCase())}</button>` : '';
+    const meCol = PALETTE[Math.max(0, S.people.findIndex((p) => p.id === me)) % PALETTE.length];
+    const mePhoto = FACES.has(me) ? `;background-image:url('/people/${me}.jpg')` : '';
+    const meBtn = me && person(me) ? `<button type="button" class="avatar me${mePhoto ? ' photo' : ''}" data-act="who-me" aria-label="Signed in as ${esc(pname(me))}. Switch person." style="background-color:${meCol[0]};color:${meCol[1]}${mePhoto}">${esc((pname(me)[0] || '?').toUpperCase())}</button>` : '';
     return `<div><div class="eyebrow">${esc(t[1])}</div><h1>${esc(t[0])}</h1></div><div class="ctrl">${meBtn}<button type="button" class="iconbtn" data-act="settings" aria-label="Settings">${ICON.gear}</button></div>`;
   }
   function renderHeaderOnly() {
