@@ -83,6 +83,13 @@ main { padding: 16px 20px calc(120px + env(safe-area-inset-bottom, 0px)); max-wi
 .bubble { width: 44px; height: 44px; border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .bubble.sage { background: var(--sage); color: var(--green); }
 .bubble.peach { background: var(--peach); color: #8A3E28; }
+.bubble.face { background: var(--sage); overflow: hidden; }
+.bubble.face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* a shared card shows both holders, overlapping */
+.bubble.duo { position: relative; background: transparent; }
+.bubble.duo img { position: absolute; width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--paper); box-sizing: border-box; background: var(--sage); }
+.bubble.duo img.a { left: 0; top: 0; }
+.bubble.duo img.b { right: 0; bottom: 0; }
 .empty { text-align: center; padding: 28px 20px; color: var(--soft); }
 .empty h2 { font-size: 22px; margin-bottom: 6px; color: var(--ink); }
 

@@ -181,6 +181,16 @@
     return groups;
   }
   const collapsedGroups = new Set();
+  // Profile pictures live in public/people/<id>.jpg. Anyone without one keeps the plain icon.
+  const FACES = new Set(['fynn', 'tara']);
+  function cardBubble(c) {
+    const faces = c.holders.filter((h) => FACES.has(h));
+    const img = (id, cls) => `<img class="${cls}" src="/people/${id}.jpg" alt="" width="44" height="44" draggable="false">`;
+    if (c.holders.length === 1 && faces.length === 1) return `<span class="bubble face" title="${esc(c.name)}">${img(faces[0], '')}</span>`;
+    if (c.holders.length === 2 && faces.length === 2) return `<span class="bubble duo" title="${esc(c.name)}">${img(faces[0], 'a')}${img(faces[1], 'b')}</span>`;
+    const joint = c.holders.length > 1;
+    return `<span class="bubble ${joint ? 'sage' : 'peach'}">${joint ? ICON.card : ICON.user}</span>`;
+  }
   // One picture per place. To use a real photo, drop the file in public/places/ and point the entry at it.
   const PLACE_SLUG = { 'panama city': 'panama-city', 'pearl islands': 'pearl-islands', 'altos de cerro azul': 'altos-de-cerro-azul' };
   let photoCredits = {}; // slug -> { credit, url } for places whose Wikimedia photo is cached on the server
@@ -258,10 +268,9 @@
       : { k: 'Balance', v: fmt(0), s: exps.length ? 'All square' : 'Nothing yet' };
     const rowOf = (e) => {
       const c = cardOf(e.cardId) || { name: 'Unknown card', holders: [] };
-      const joint = c.holders.length > 1;
       const foreign = e.currency !== base();
       return `<button class="row" data-act="edit" data-id="${esc(e.id)}">
-        <span class="bubble ${joint ? 'sage' : 'peach'}">${joint ? ICON.card : ICON.user}</span>
+        ${cardBubble(c)}
         <span class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(c.name)} · ${esc(shortDate(e.date))}</div></span>
         <span class="amt">${esc(fmt(e.baseMinor))}${foreign ? `<span class="o">${esc(fmt(e.amountMinor, e.currency))}</span>` : ''}</span>
       </button>`;
