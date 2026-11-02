@@ -368,8 +368,8 @@ test('place photos: ranks place-like names first, never uses unrelated files for
   const mk = (n, thumb) => ({ mime: 'image/jpeg', width: 3000, height: 1800, thumburl: thumb, descriptionurl: 'https://commons.wikimedia.org/wiki/File:' + n, extmetadata: { LicenseShortName: { value: 'CC BY 3.0' }, Artist: { value: 'A' } } });
   const fetchImpl = async (url) => {
     if (url.includes('/page/summary/')) return ok({});
-    if (url.includes('/media-list/Panama_City')) return ok({ items: ['Panama_Papers_(1).jpeg', 'Street_market.jpg', 'Panama_City_skyline_at_dusk.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
-    if (url.includes('/media-list/Contadora_Island')) return ok({ items: ['Main_boulevard.jpg', 'Playa_Galeon_beach.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
+    if (url.includes('/media-list/Panama_City')) return ok({ items: ['Panama_Papers_(1).jpeg', 'Street_market.jpg', 'Casco_antiguo_plazita.jpg', 'Panama_City_skyline_at_dusk.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
+    if (url.includes('/media-list/Contadora_Island')) return ok({ items: ['Main_boulevard.jpg', 'Playa_Galeon_Villa.jpg', 'Playa_Galeon_beach.jpg'].map((title) => ({ type: 'image', title: 'File:' + title })) });
     if (url.includes('/media-list/Cerro_Azul')) return ok({ items: [{ type: 'image', title: 'File:Plain_house.jpg' }] });
     if (url.includes('commons.wikimedia.org/w/api.php')) {
       const titles = decodeURIComponent(url.split('titles=')[1]).split('|').map((x) => x.replace(/^File:/, ''));
@@ -382,8 +382,8 @@ test('place photos: ranks place-like names first, never uses unrelated files for
   const t = await boot({ dataDir: dir, fetchImpl, log: () => {} });
   await t.app.photos.ensureAll();
   const credits = await (await fetch(t.base + '/photos/credits.json')).json();
-  assert.equal(credits['panama-city'].file, 'Panama City skyline at dusk.jpg', 'skips the Papers photo, picks the skyline');
-  assert.equal(credits['pearl-islands'].file, 'Playa Galeon beach.jpg', 'beach outranks a boulevard');
+  assert.equal(credits['panama-city'].file, 'Panama City skyline at dusk.jpg', 'skips the Papers photo, picks the skyline over an old-town plaza');
+  assert.equal(credits['pearl-islands'].file, 'Playa Galeon beach.jpg', 'beach outranks a villa and a boulevard');
   assert.equal(credits['altos-de-cerro-azul'].file, 'Plain house.jpg', 'non-strict places fall back to the first free photo');
   fs.writeFileSync(path.join(dir, 'places', 'panama-city.json'), JSON.stringify({ credit: 'old', url: 'u', file: 'x' })); // cached by an older picker
   await t.app.photos.ensureAll();

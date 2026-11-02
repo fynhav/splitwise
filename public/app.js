@@ -192,14 +192,19 @@
       if (JSON.stringify(next) !== JSON.stringify(photoCredits)) { photoCredits = next; if (S && route === 'trip') renderView(); }
     } catch (e) { /* offline: keep what we have */ }
   }
+  // The photos' licences ask for a credit; it lives in Settings rather than on the picture.
+  function photoCreditsNote() {
+    const names = { 'panama-city': 'Panama City', 'pearl-islands': 'Pearl Islands', 'altos-de-cerro-azul': 'Altos de Cerro Azul' };
+    const items = Object.keys(photoCredits).filter((k) => names[k]).map((k) => `<a href="${esc(photoCredits[k].url)}" target="_blank" rel="noopener">${esc(names[k])}</a>: ${esc(photoCredits[k].credit.replace(/^Photo: /, ''))}`);
+    return items.length ? `<div class="note small" style="margin:14px 0 0">Photos from Wikimedia Commons. ${items.join('; ')}.</div>` : '';
+  }
   // The real photo when the server has one (it sits on top), otherwise the bundled illustration underneath.
   function placePic(name) {
     const slug = PLACE_SLUG[locKey(name)];
     const art = `url('/places/${slug || 'generic'}.svg')`;
     const hasPhoto = slug && photoCredits[slug];
     const bg = hasPhoto ? `url('/photos/${slug}.jpg'),${art}` : art;
-    const credit = hasPhoto ? `<a class="photocredit" href="${esc(photoCredits[slug].url)}" target="_blank" rel="noopener">${esc(photoCredits[slug].credit)}</a>` : '';
-    return `<div class="placepic" role="img" aria-label="Picture of ${esc(name)}" style="background-image:${bg}">${credit}</div>`;
+    return `<div class="placepic" role="img" aria-label="Picture of ${esc(name)}" style="background-image:${bg}"></div>`;
   }
   function newDraft(e) {
     const b = base();
@@ -486,6 +491,7 @@
       <div class="note" style="margin-bottom:12px">${esc(rateInfo)}</div>
       <button type="button" class="btn secondary" data-act="refreshRates">Refresh exchange rates</button>
       <button type="button" class="btn secondary" data-act="export">Download CSV</button>
+      ${photoCreditsNote()}
       <label class="field" style="margin-top:14px"><span>Add a person</span><input id="setPerson" maxlength="30" placeholder="Name"></label>
       <button type="button" class="btn dark" data-act="saveSettings">Save</button>
       <button type="button" class="btn secondary" data-act="closeSheet">Close</button>`);
