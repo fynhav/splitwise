@@ -188,7 +188,7 @@ test('people, settings and CSV export', async () => {
   assert.equal((await t.call('PUT', '/api/settings', { households: [['fynn']] })).status, 400);
   await t.call('POST', '/api/expenses', ex({ title: 'Lunch, with "quotes"', amount: '12.50' }));
   const csv = await t.call('GET', '/api/export.csv');
-  assert.match(csv.data, /^Date,Title,Card/);
+  assert.match(csv.data, /^Date,Location,Title,Card/);
   assert.match(csv.data, /"Lunch, with ""quotes"""/);
   await t.close();
 });
@@ -279,4 +279,22 @@ test('PIN login sets a long-lived session cookie that replaces the header', asyn
   assert.equal(forged.status, 401);
   const none = await (await fetch(t.base + '/api/auth-required')).json();
   assert.equal(none.authed, false);
+});
+
+test('expenses keep a tidied location and it appears in the CSV', async () => {
+  const t = await boot();
+  const a = await t.call('POST', '/api/expenses', ex({ location: '  Bocas   del Toro ' }));
+  assert.equal(a.status, 201);
+  const e = a.data.state.expenses[0];
+  assert.equal(e.location, 'Bocas del Toro');
+  const none = await t.call('POST', '/api/expenses', ex());
+  assert.equal(none.data.state.expenses.find((x) => x.id !== e.id).location, '');
+  const long = await t.call('POST', '/api/expenses', ex({ location: 'x'.repeat(200) }));
+  assert.equal(long.data.state.expenses.find((x) => x.location.startsWith('xx')).location.length, 60);
+  const upd = await t.call('PUT', '/api/expenses/' + e.id, ex({ location: 'Panama City' }));
+  assert.equal(upd.data.state.expenses.find((x) => x.id === e.id).location, 'Panama City');
+  const csv = await fetch(t.base + '/api/export.csv');
+  const text = await csv.text();
+  assert.match(text.split('\n')[0], /^Date,Location,Title/);
+  assert.match(text, /Panama City/);
 });

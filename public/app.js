@@ -130,6 +130,45 @@
     if (equal) return `${names}, split equally`;
     return `${names}, by shares (${on.map((p) => draft.weights[p.id]).join(':')})`;
   }
+  const locKey = (l) => String(l || '').trim().toLowerCase();
+  const byRecent = (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '');
+  // Recent places, newest first, one entry per place (case-insensitive).
+  function recentLocations() {
+    const seen = new Set();
+    const out = [];
+    for (const e of [...S.expenses].sort(byRecent)) {
+      const k = locKey(e.location);
+      if (k && !seen.has(k)) { seen.add(k); out.push(e.location); }
+    }
+    return out;
+  }
+  const lastLocation = () => recentLocations()[0] || ''; // we are probably still where we last spent
+  function rangeLabel(a, b) {
+    if (a === b) return shortDate(a);
+    const x = new Date(a + 'T12:00:00');
+    const y = new Date(b + 'T12:00:00');
+    if (isNaN(x) || isNaN(y)) return `${a} to ${b}`;
+    if (x.getMonth() === y.getMonth() && x.getFullYear() === y.getFullYear()) return `${x.getDate()}–${shortDate(b)}`;
+    return `${shortDate(a)} – ${shortDate(b)}`;
+  }
+  // Consecutive expenses at the same place become one group, so a few days in one spot read as one block.
+  function groupByLocation(exps) {
+    const groups = [];
+    for (const e of exps) {
+      const k = locKey(e.location);
+      const g = groups[groups.length - 1];
+      if (g && g.key === k) { g.items.push(e); continue; }
+      groups.push({ key: k, name: e.location || '', items: [e] });
+    }
+    for (const g of groups) {
+      g.last = g.items[0].date;
+      g.first = g.items[g.items.length - 1].date;
+      g.total = g.items.reduce((n, e) => n + e.baseMinor, 0);
+      g.id = `${g.key}|${g.first}`;
+    }
+    return groups;
+  }
+  const collapsedGroups = new Set();
   function newDraft(e) {
     const b = base();
     if (e) {
@@ -138,14 +177,14 @@
         id: e.id, title: e.title, amount: L.minorToInput(e.amountMinor, e.currency), currency: e.currency,
         rate: e.rate, rateSource: e.rateSource, actualBase: e.rateSource === 'actual' ? L.minorToInput(e.baseMinor, b) : '',
         cardId: e.cardId, splitMode: eq ? 'equal' : 'shares', weights: { ...e.split.weights },
-        date: e.date, note: e.note || '', showRate: e.currency !== b && e.rateSource !== 'auto',
+        date: e.date, note: e.note || '', location: e.location || '', showRate: e.currency !== b && e.rateSource !== 'auto',
         showSplit: !(eq && Object.values(e.split.weights).filter((w) => w > 0).length === S.people.length),
       };
     }
     const card = defaultCard();
     return {
       title: '', amount: '', currency: b, rate: 1, rateSource: 'base', actualBase: '', cardId: card.id,
-      splitMode: 'equal', weights: Object.fromEntries(S.people.map((p) => [p.id, 1])), date: L.today(), note: '', showRate: false, showSplit: false,
+      splitMode: 'equal', weights: Object.fromEntries(S.people.map((p) => [p.id, 1])), date: L.today(), note: '', location: lastLocation(), showRate: false, showSplit: false,
     };
   }
   function setCurrency(cur) {
@@ -174,13 +213,13 @@
 
   /* ---------- views ---------- */
   function viewTrip() {
-    const exps = [...S.expenses].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const exps = [...S.expenses].sort(byRecent);
     const plan = L.settlementPlan(S);
     const t = plan.transfers[0];
     const tile = t
       ? { k: `${unitName(t.from)} pay ${unitName(t.to)}`, v: fmt(t.baseMinor), s: plan.transfers.length > 1 ? `+${plan.transfers.length - 1} more` : 'to settle up' }
       : { k: 'Balance', v: fmt(0), s: exps.length ? 'All square' : 'Nothing yet' };
-    const rows = exps.map((e) => {
+    const rowOf = (e) => {
       const c = cardOf(e.cardId) || { name: 'Unknown card', holders: [] };
       const joint = c.holders.length > 1;
       const foreign = e.currency !== base();
@@ -189,7 +228,17 @@
         <span class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(c.name)} · ${esc(shortDate(e.date))}</div></span>
         <span class="amt">${esc(fmt(e.baseMinor))}${foreign ? `<span class="o">${esc(fmt(e.amountMinor, e.currency))}</span>` : ''}</span>
       </button>`;
-    }).join('');
+    };
+    const anyLoc = exps.some((e) => locKey(e.location));
+    const rows = anyLoc
+      ? groupByLocation(exps).map((g) => {
+        const open = !collapsedGroups.has(g.id);
+        return `<section class="locgroup"><button type="button" class="grouphead" data-act="toggleGroup" data-id="${esc(g.id)}" aria-expanded="${open}">
+          <span class="gname">${esc(g.name || 'No location')}<span class="gdates">${esc(rangeLabel(g.first, g.last))} · ${g.items.length} expense${g.items.length === 1 ? '' : 's'}</span></span>
+          <span class="gtotal">${esc(fmt(g.total))}</span><span class="gchev${open ? ' open' : ''}" aria-hidden="true">${ICON.chev}</span></button>
+          ${open ? `<div class="grouprows">${g.items.map(rowOf).join('')}</div>` : ''}</section>`;
+      }).join('')
+      : exps.map(rowOf).join('');
     return `<div class="stack">
       <div class="hero">
         <div class="tile sunset"><span class="sun" aria-hidden="true"></span><div class="panelbox"><div class="k">Trip total</div><div class="v">${esc(fmt(L.totalSpent(S)))}</div><div class="k">${exps.length} expense${exps.length === 1 ? '' : 's'}</div></div></div>
@@ -233,6 +282,8 @@
     if (!quick.includes(d.currency)) quick.push(d.currency);
     const more = R && R.rates ? Object.keys(R.rates).filter((c) => !quick.includes(c)).sort() : [];
     const chips = quick.map((c) => `<button type="button" class="chip" data-act="cur" data-v="${c}" aria-pressed="${d.currency === c}"><span class="n">${esc(c)}</span></button>`).join('');
+    const recent = recentLocations();
+    const locChips = recent.slice(0, 4).map((l) => `<button type="button" class="chip" data-act="loc" data-v="${esc(l)}" aria-pressed="${locKey(d.location) === locKey(l)}"><span class="n">${esc(l)}</span></button>`).join('');
     const cardOptions = S.cards.map((c) => `<option value="${esc(c.id)}"${d.cardId === c.id ? ' selected' : ''}>${esc(c.name)} · ${esc(unitName(c.holders))}</option>`).join('');
     const who = S.people.map((p) => `<button type="button" class="chip" data-act="who" data-id="${esc(p.id)}" aria-pressed="${d.weights[p.id] > 0}"><span class="n">${esc(p.name)}</span></button>`).join('');
     const steppers = d.splitMode === 'shares' ? S.people.filter((p) => d.weights[p.id] > 0).map((p) => `<div class="personrow">${avatar(p.id)}<span class="grow">${esc(p.name)}</span><span class="stepper"><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="-1" aria-label="Fewer shares for ${esc(p.name)}">−</button><b>${d.weights[p.id]}</b><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="1" aria-label="More shares for ${esc(p.name)}">+</button></span></div>`).join('') : '';
@@ -253,6 +304,8 @@
       ${rateFields}
       <div><div class="label">Currency</div><div class="chips">${chips}<select data-bind="curMore" aria-label="More currencies" style="width:auto;min-height:44px;border-radius:22px"><option value="">More…</option>${more.map((c) => `<option value="${c}">${c}</option>`).join('')}</select></div></div>
       <label class="field" style="margin:0"><span>What was it for?</span><input data-bind="title" maxlength="80" placeholder="Dinner, taxi, hotel…" value="${esc(d.title)}" autocomplete="off"></label>
+      <div><label class="field" style="margin:0 0 8px"><span>Where?</span><input data-bind="location" maxlength="60" list="locs" placeholder="Bocas del Toro, Panama City…" value="${esc(d.location)}" autocomplete="off" autocapitalize="words"></label>
+        ${locChips ? `<div class="chips">${locChips}</div>` : ''}<datalist id="locs">${recent.map((l) => `<option value="${esc(l)}">`).join('')}</datalist></div>
       <label class="field" style="margin:0"><span>Paid with</span><select data-bind="cardId">${cardOptions}</select></label>
       <div><div class="label">Shared between</div>
         <div class="surface" style="display:flex;align-items:center;gap:12px;padding:8px 8px 8px 18px"><b style="flex:1;min-width:0">${esc(splitSummary())}</b><button type="button" class="btn secondary inline" style="min-height:40px;padding:0 18px" data-act="toggleSplit" aria-expanded="${d.showSplit}">${d.showSplit ? 'Done' : 'Adjust'}</button></div>
@@ -429,6 +482,8 @@
       renderView();
     },
     toggleRate() { draft.showRate = !draft.showRate; renderView(); },
+    loc(el) { draft.location = locKey(draft.location) === locKey(el.dataset.v) ? '' : el.dataset.v; renderView(); },
+    toggleGroup(el) { const id = el.dataset.id; if (collapsedGroups.has(id)) collapsedGroups.delete(id); else collapsedGroups.add(id); renderView(); },
     toggleSplit() { draft.showSplit = !draft.showSplit; renderView(); },
     who(el) {
       const id = el.dataset.id;
@@ -457,7 +512,7 @@
       const weights = {};
       S.people.forEach((p) => { if (d.weights[p.id] > 0) weights[p.id] = d.weights[p.id]; });
       const body = {
-        title: d.title.trim(), amount: d.amount, currency: d.currency, cardId: d.cardId, date: d.date, note: d.note,
+        title: d.title.trim(), amount: d.amount, currency: d.currency, cardId: d.cardId, date: d.date, note: d.note, location: d.location,
         split: { weights }, createdBy: me,
         rate: d.currency !== b ? Number(String(d.rate).replace(',', '.')) || undefined : undefined,
         rateSource: d.rateSource, actualBase: d.actualBase || undefined,

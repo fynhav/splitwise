@@ -146,6 +146,7 @@ function createApp(opts = {}) {
     const weights = normaliseSplit(input.split, s);
     const date = /^\d{4}-\d{2}-\d{2}$/.test(input.date || '') ? input.date : nowIso().slice(0, 10);
     const note = String(input.note || '').slice(0, 200);
+    const location = String(input.location || '').replace(/\s+/g, ' ').trim().slice(0, 60);
 
     let baseMinor;
     let rate;
@@ -178,7 +179,7 @@ function createApp(opts = {}) {
       id: existing ? existing.id : newId(),
       title, date, currency, amountMinor, baseMinor,
       rate: Number(Number(rate).toPrecision(8)), rateSource,
-      cardId: card.id, split: { weights }, note,
+      cardId: card.id, split: { weights }, note, location,
       createdBy: existing ? existing.createdBy : createdBy,
       createdAt: existing ? existing.createdAt : ts,
       updatedAt: ts,
@@ -206,11 +207,11 @@ function createApp(opts = {}) {
   function toCsv(s) {
     const base = s.settings.baseCurrency;
     const name = (id) => (s.people.find((p) => p.id === id) || { name: id }).name;
-    const rows = [['Date', 'Title', 'Card', 'Currency', 'Amount', 'Base currency', 'Base amount', 'Rate', 'Rate source', 'Split', 'Notes']];
+    const rows = [['Date', 'Location', 'Title', 'Card', 'Currency', 'Amount', 'Base currency', 'Base amount', 'Rate', 'Rate source', 'Split', 'Notes']];
     for (const e of s.expenses.filter((x) => !x.deletedAt).sort((a, b) => a.date.localeCompare(b.date))) {
       const card = s.cards.find((c) => c.id === e.cardId);
       rows.push([
-        e.date, e.title, card ? card.name : e.cardId, e.currency, L.minorToInput(e.amountMinor, e.currency),
+        e.date, e.location || '', e.title, card ? card.name : e.cardId, e.currency, L.minorToInput(e.amountMinor, e.currency),
         base, L.minorToInput(e.baseMinor, base), e.rate, e.rateSource,
         Object.entries(e.split.weights).map(([id, w]) => `${name(id)}:${w}`).join(' '), e.note || '',
       ]);
