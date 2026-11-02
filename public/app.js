@@ -44,9 +44,11 @@
   const pname = (id) => (person(id) || { name: id }).name;
   const unitName = (ms) => ms.map(pname).join(' + ');
   const cardOf = (id) => S.cards.find((c) => c.id === id);
+  const FACES = new Set(['fynn', 'tara', 'max']); // profile pictures in public/people/<id>.jpg; anyone else gets their initial
   function avatar(id, cls) {
     const i = Math.max(0, S.people.findIndex((p) => p.id === id));
     const c = PALETTE[i % PALETTE.length];
+    if (FACES.has(id)) return `<span class="avatar photo ${cls || ''}" style="background-color:${c[0]};background-image:url('/people/${id}.jpg')" aria-hidden="true">${esc((pname(id)[0] || '?').toUpperCase())}</span>`;
     return `<span class="avatar ${cls || ''}" style="background:${c[0]};color:${c[1]}" aria-hidden="true">${esc((pname(id)[0] || '?').toUpperCase())}</span>`;
   }
   const shortDate = (d) => {
