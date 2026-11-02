@@ -179,6 +179,13 @@
     return groups;
   }
   const collapsedGroups = new Set();
+  // One picture per place. To use a real photo, drop the file in public/places/ and point the entry at it.
+  const PLACE_ART = {
+    'panama city': '/places/panama-city.svg',
+    'pearl islands': '/places/pearl-islands.svg',
+    'altos de cerro azul': '/places/altos-de-cerro-azul.svg',
+  };
+  const placeArt = (name) => PLACE_ART[locKey(name)] || '/places/generic.svg';
   function newDraft(e) {
     const b = base();
     if (e) {
@@ -246,7 +253,7 @@
         return `<section class="locgroup"><button type="button" class="grouphead" data-act="toggleGroup" data-id="${esc(g.id)}" aria-expanded="${open}">
           <span class="gname">${esc(g.name || 'No location')}<span class="gdates">${esc(rangeLabel(g.first, g.last))} · ${g.items.length} expense${g.items.length === 1 ? '' : 's'}</span></span>
           <span class="gtotal">${esc(fmt(g.total))}</span><span class="gchev${open ? ' open' : ''}" aria-hidden="true">${ICON.chev}</span></button>
-          ${open ? `<div class="grouprows">${g.items.map(rowOf).join('')}</div>` : ''}</section>`;
+          ${open ? `${g.key ? `<div class="placepic" role="img" aria-label="Picture of ${esc(g.name)}" style="background-image:url('${esc(placeArt(g.name))}')"></div>` : ''}<div class="grouprows">${g.items.map(rowOf).join('')}</div>` : ''}</section>`;
       }).join('')
       : exps.map(rowOf).join('');
     return `<div class="stack">

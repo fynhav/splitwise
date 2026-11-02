@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9DB8C9"/><stop offset=".55" stop-color="#F0CDB4"/><stop offset="1" stop-color="#E8B093"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA39A"/><stop offset="1" stop-color="#2E5948"/></linearGradient>
+  </defs>
+  <rect width="600" height="220" fill="url(#sky)"/>
+  <circle cx="470" cy="118" r="30" fill="#FBE9C8"/>
+  <g fill="#3A6A5A" opacity=".55">
+    <rect x="40" y="96" width="30" height="80"/><rect x="74" y="80" width="26" height="96"/><rect x="104" y="108" width="34" height="68"/>
+    <rect x="360" y="90" width="28" height="86"/><rect x="392" y="104" width="34" height="72"/>
+  </g>
+  <g fill="#2E5948">
+    <rect x="130" y="70" width="36" height="110"/><rect x="170" y="44" width="30" height="136"/><rect x="203" y="86" width="40" height="94"/>
+    <rect x="246" y="58" width="28" height="122"/><path d="M280 180V40l22-14 22 14v140z"/><rect x="328" y="76" width="34" height="104"/>
+    <rect x="430" y="82" width="32" height="98"/><rect x="466" y="62" width="30" height="118"/><rect x="500" y="98" width="38" height="82"/><rect x="540" y="78" width="40" height="102"/>
+  </g>
+  <g fill="#F7E3C6" opacity=".85">
+    <rect x="178" y="58" width="4" height="6"/><rect x="188" y="74" width="4" height="6"/><rect x="178" y="92" width="4" height="6"/><rect x="254" y="72" width="4" height="6"/><rect x="254" y="96" width="4" height="6"/>
+    <rect x="296" y="60" width="4" height="6"/><rect x="306" y="82" width="4" height="6"/><rect x="296" y="106" width="4" height="6"/><rect x="474" y="80" width="4" height="6"/><rect x="474" y="104" width="4" height="6"/>
+    <rect x="140" y="92" width="4" height="6"/><rect x="336" y="96" width="4" height="6"/><rect x="548" y="96" width="4" height="6"/>
+  </g>
+  <rect y="172" width="600" height="48" fill="url(#sea)"/>
+  <g stroke="#F0CDB4" stroke-width="3" stroke-linecap="round" opacity=".6"><path d="M430 186h60M450 196h40M80 192h50"/></g>
+</svg>
