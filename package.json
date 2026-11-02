@@ -1,0 +1,12 @@
+{
+  "name": "panama-splitter",
+  "version": "1.0.0",
+  "description": "Trip expense splitter for Fynn, Tara and Max with shared and own cards, GBP base currency, self-hosted over Tailscale",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" }
+}
