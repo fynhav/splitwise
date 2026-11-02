@@ -181,15 +181,27 @@
     return groups;
   }
   const collapsedGroups = new Set();
-  // Profile pictures live in public/people/<id>.jpg. Anyone without one keeps the plain icon.
-  const FACES = new Set(['fynn', 'tara']);
-  function cardBubble(c) {
-    const faces = c.holders.filter((h) => FACES.has(h));
-    const img = (id, cls) => `<img class="${cls}" src="/people/${id}.jpg" alt="" width="44" height="44" draggable="false">`;
-    if (c.holders.length === 1 && faces.length === 1) return `<span class="bubble face" title="${esc(c.name)}">${img(faces[0], '')}</span>`;
-    if (c.holders.length === 2 && faces.length === 2) return `<span class="bubble duo" title="${esc(c.name)}">${img(faces[0], 'a')}${img(faces[1], 'b')}</span>`;
-    const joint = c.holders.length > 1;
-    return `<span class="bubble ${joint ? 'sage' : 'peach'}">${joint ? ICON.card : ICON.user}</span>`;
+  // The icon says what the expense probably was, guessed from its title (English and a little Spanish).
+  const KINDS = [
+    ['boat', /\b(ferry|boat|lancha|barco|ship|catamaran|sail\w*|water ?taxi|speed ?boat|cruise|kayak|paddle ?board)\b/, '<path d="M3 17l2 3h14l2-3z"/><path d="M12 3v11"/><path d="M12 4l6 8h-6"/><path d="M12 6L7 12h5"/>'],
+    ['car', /\b(taxi|cab|uber|lyft|bolt|cabify|bus|metro|train|car|fuel|gas|petrol|parking|toll|transfer|transport|ride|drive|driver)\b/, '<path d="M4 16v-4l2-5h12l2 5v4"/><path d="M4 12h16"/><path d="M4 16h16v2.5H4z"/><circle cx="7.5" cy="14.2" r=".7"/><circle cx="16.5" cy="14.2" r=".7"/>'],
+    ['flight', /\b(flights?|plane|airline|airport|vuelo|avi[oó]n)\b/, '<path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'],
+    ['home', /\b(airbnb|villa|cabin|cabana|caba[nñ]a|apartment|house|casa)\b/, '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'],
+    ['stay', /\b(hotel|hostel|hostal|resort|lodge|lodging|accommodation|stay|room|night|nights|posada|booking)\b/, '<path d="M3 18V7"/><path d="M3 14h18v4"/><path d="M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="2"/>'],
+    ['coffee', /\b(coffee|caf[eé]|latte|cappuccino|espresso|tea|bakery)\b/, '<path d="M5 9h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 11h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v3M12 3v3"/>'],
+    ['drinks', /\b(bar|beer|cerveza|wine|vino|cocktails?|drinks?|pub|rum|ron|tequila|club|nightclub)\b/, '<path d="M4 4h16l-8 9z"/><path d="M12 13v7M8 20h8"/>'],
+    ['food', /\b(lunch|dinner|breakfast|brunch|restaurant|food|meal|eat|pizza|burger|taco|tacos|sushi|bbq|italian|mexican|thai|ceviche|almuerzo|cena|desayuno|comida|snack|snacks|takeaway|supper)\b/, '<path d="M6 3v7a2 2 0 0 0 4 0V3"/><path d="M8 3v18"/><path d="M17 21V3c-2 1-3.5 3.5-3.5 7 0 2 .8 3 3.5 3"/>'],
+    ['shop', /\b(groceries|grocery|supermarket|market|mercado|shop|shopping|store|tienda|water|supplies)\b/, '<path d="M3 4h2l2.4 11h10.2L20 8H6.5"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/>'],
+    ['activity', /\b(tour|tours|excursion|snorkel\w*|dive|diving|surf\w*|hike|hiking|ticket|tickets|museum|park|entry|entrance|activity|zip ?line|whale|canal|show|guide)\b/, '<path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 7v10" stroke-dasharray="2 2"/>'],
+    ['phone', /\b(sim|e-?sim|phone|data|wifi|internet|roaming)\b/, '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'],
+    ['health', /\b(pharmacy|farmacia|medicine|doctor|clinic|sunscreen|insurance)\b/, '<path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>'],
+    ['gift', /\b(gift|souvenir|souvenirs|present|regalo)\b/, '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M3 9h18v3H3z"/><path d="M12 9v11"/><path d="M12 9c-2 0-4-1-4-3s3-2 4 3c1-5 4-5 4-3s-2 3-4 3"/>'],
+  ];
+  const RECEIPT = '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>';
+  function expenseKind(title) {
+    const t = String(title || '').toLowerCase();
+    const hit = KINDS.find((k) => k[1].test(t));
+    return hit ? { kind: hit[0], icon: svg(hit[2], 'width="22" height="22"') } : { kind: 'other', icon: svg(RECEIPT, 'width="22" height="22"') };
   }
   // One picture per place. To use a real photo, drop the file in public/places/ and point the entry at it.
   const PLACE_SLUG = { 'panama city': 'panama-city', 'pearl islands': 'pearl-islands', 'altos de cerro azul': 'altos-de-cerro-azul' };
@@ -270,7 +282,7 @@
       const c = cardOf(e.cardId) || { name: 'Unknown card', holders: [] };
       const foreign = e.currency !== base();
       return `<button class="row" data-act="edit" data-id="${esc(e.id)}">
-        ${cardBubble(c)}
+        <span class="bubble sage" data-kind="${expenseKind(e.title).kind}">${expenseKind(e.title).icon}</span>
         <span class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(c.name)} · ${esc(shortDate(e.date))}</div></span>
         <span class="amt">${esc(fmt(e.baseMinor))}${foreign ? `<span class="o">${esc(fmt(e.amountMinor, e.currency))}</span>` : ''}</span>
       </button>`;
