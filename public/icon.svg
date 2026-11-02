@@ -1,1 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="26" fill="#F3EEE3"/><circle cx="60" cy="48" r="26" fill="#F7D9A0"/><rect x="0" y="66" width="120" height="54" fill="#2F9C98"/><rect x="26" y="74" width="68" height="30" rx="8" fill="#2E5948"/><path d="M26 84h68" stroke="#F3EEE3" stroke-width="5"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4ECDD"/><stop offset="1" stop-color="#A9C2AE"/></linearGradient>
+    <clipPath id="coin"><circle cx="722" cy="676" r="168"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g transform="translate(0 30)"><g transform="rotate(-9 512 480)">
+    <rect x="206" y="288" width="600" height="400" rx="58" fill="#2E5948"/>
+    <rect x="206" y="372" width="600" height="72" fill="#F3EEE3" opacity="0.92"/>
+    <rect x="262" y="508" width="96" height="72" rx="16" fill="#F0CDB4"/>
+    <rect x="262" y="612" width="190" height="22" rx="11" fill="#F3EEE3" opacity="0.55"/>
+  </g>
+  <circle cx="722" cy="676" r="182" fill="#F3EEE3"/>
+  <g clip-path="url(#coin)">
+    <rect x="554" y="508" width="168" height="336" fill="#B4543A"/>
+    <rect x="722" y="508" width="168" height="336" fill="#F0CDB4"/>
+  </g>
+  <rect x="714" y="500" width="16" height="352" fill="#F3EEE3"/>
+  </g>
+</svg>

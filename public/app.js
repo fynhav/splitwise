@@ -117,6 +117,19 @@
   }
 
   /* ---------- drafts (add / edit expense) ---------- */
+  // The viewer's own card; if they hold a joint card (Fynn + Tara's shared card) that wins.
+  function defaultCard() {
+    const mine = S.cards.filter((c) => c.holders.includes(me)).sort((a, b) => b.holders.length - a.holders.length);
+    return mine[0] || S.cards[0];
+  }
+  function splitSummary() {
+    const on = S.people.filter((p) => draft.weights[p.id] > 0);
+    const everyone = on.length === S.people.length;
+    const names = everyone ? 'Everyone' : on.map((p) => p.name).join(', ');
+    const equal = draft.splitMode === 'equal' && on.every((p) => draft.weights[p.id] === draft.weights[on[0].id]);
+    if (equal) return `${names}, split equally`;
+    return `${names}, by shares (${on.map((p) => draft.weights[p.id]).join(':')})`;
+  }
   function newDraft(e) {
     const b = base();
     if (e) {
@@ -126,13 +139,13 @@
         rate: e.rate, rateSource: e.rateSource, actualBase: e.rateSource === 'actual' ? L.minorToInput(e.baseMinor, b) : '',
         cardId: e.cardId, splitMode: eq ? 'equal' : 'shares', weights: { ...e.split.weights },
         date: e.date, note: e.note || '', showRate: e.currency !== b && e.rateSource !== 'auto',
+        showSplit: !(eq && Object.values(e.split.weights).filter((w) => w > 0).length === S.people.length),
       };
     }
-    const last = ls.get('lastCard');
-    const card = S.cards.find((c) => c.id === last) || S.cards.find((c) => c.holders.includes(me)) || S.cards[0];
+    const card = defaultCard();
     return {
       title: '', amount: '', currency: b, rate: 1, rateSource: 'base', actualBase: '', cardId: card.id,
-      splitMode: 'equal', weights: Object.fromEntries(S.people.map((p) => [p.id, 1])), date: L.today(), note: '', showRate: false,
+      splitMode: 'equal', weights: Object.fromEntries(S.people.map((p) => [p.id, 1])), date: L.today(), note: '', showRate: false, showSplit: false,
     };
   }
   function setCurrency(cur) {
@@ -220,7 +233,7 @@
     if (!quick.includes(d.currency)) quick.push(d.currency);
     const more = R && R.rates ? Object.keys(R.rates).filter((c) => !quick.includes(c)).sort() : [];
     const chips = quick.map((c) => `<button type="button" class="chip" data-act="cur" data-v="${c}" aria-pressed="${d.currency === c}"><span class="n">${esc(c)}</span></button>`).join('');
-    const cards = S.cards.map((c) => `<button type="button" class="chip" data-act="card" data-id="${esc(c.id)}" aria-pressed="${d.cardId === c.id}"><span class="n">${esc(c.name)}</span><span class="d">${esc(unitName(c.holders))}</span></button>`).join('');
+    const cardOptions = S.cards.map((c) => `<option value="${esc(c.id)}"${d.cardId === c.id ? ' selected' : ''}>${esc(c.name)} · ${esc(unitName(c.holders))}</option>`).join('');
     const who = S.people.map((p) => `<button type="button" class="chip" data-act="who" data-id="${esc(p.id)}" aria-pressed="${d.weights[p.id] > 0}"><span class="n">${esc(p.name)}</span></button>`).join('');
     const steppers = d.splitMode === 'shares' ? S.people.filter((p) => d.weights[p.id] > 0).map((p) => `<div class="personrow">${avatar(p.id)}<span class="grow">${esc(p.name)}</span><span class="stepper"><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="-1" aria-label="Fewer shares for ${esc(p.name)}">−</button><b>${d.weights[p.id]}</b><button type="button" data-act="wstep" data-id="${esc(p.id)}" data-d="1" aria-label="More shares for ${esc(p.name)}">+</button></span></div>`).join('') : '';
     const rateFields = d.currency !== b && d.showRate ? `
@@ -240,10 +253,12 @@
       ${rateFields}
       <div><div class="label">Currency</div><div class="chips">${chips}<select data-bind="curMore" aria-label="More currencies" style="width:auto;min-height:44px;border-radius:22px"><option value="">More…</option>${more.map((c) => `<option value="${c}">${c}</option>`).join('')}</select></div></div>
       <label class="field" style="margin:0"><span>What was it for?</span><input data-bind="title" maxlength="80" placeholder="Dinner, taxi, hotel…" value="${esc(d.title)}" autocomplete="off"></label>
-      <div><div class="label">Paid with</div><div class="chips">${cards}</div></div>
-      <div><div class="label">Shared between</div><div class="chips">${who}</div>
+      <label class="field" style="margin:0"><span>Paid with</span><select data-bind="cardId">${cardOptions}</select></label>
+      <div><div class="label">Shared between</div>
+        <div class="surface" style="padding:10px 12px 10px 16px"><div class="row" style="padding:0"><span class="grow"><b>${esc(splitSummary())}</b></span><button type="button" class="btn secondary inline" data-act="toggleSplit" aria-expanded="${d.showSplit}">${d.showSplit ? 'Done' : 'Adjust'}</button></div></div>
+        ${d.showSplit ? `<div class="chips" style="margin-top:10px">${who}</div>
         <div class="chips" style="margin-top:8px"><button type="button" class="chip" data-act="mode" data-v="equal" aria-pressed="${d.splitMode === 'equal'}"><span class="n">Equal</span></button><button type="button" class="chip" data-act="mode" data-v="shares" aria-pressed="${d.splitMode === 'shares'}"><span class="n">By shares</span></button></div>
-        ${steppers ? `<div class="surface" style="margin-top:10px;padding:8px 16px">${steppers}</div>` : ''}
+        ${steppers ? `<div class="surface" style="margin-top:10px;padding:8px 16px">${steppers}</div>` : ''}` : ''}
         <div id="splitprev" class="small muted" style="margin:8px 4px 0">${splitPreview()}</div>
       </div>
       <div class="split">
@@ -395,7 +410,11 @@
   const actions = {
     closeSheet() { closeSheet(); },
     'who-me'() { openIdentity(); },
-    setMe(el) { me = el.dataset.id; ls.set('me', me); ck.set('trip_me', me); closeSheet(); renderApp(); },
+    setMe(el) {
+      me = el.dataset.id; ls.set('me', me); ck.set('trip_me', me); closeSheet();
+      if (draft && !draft.id && !draft.title && !draft.amount) draft = newDraft(); // default card follows who is using it
+      renderApp();
+    },
     settings() { openSettings(); },
     edit(el) {
       const e = S.expenses.find((x) => x.id === el.dataset.id);
@@ -410,7 +429,7 @@
       renderView();
     },
     toggleRate() { draft.showRate = !draft.showRate; renderView(); },
-    card(el) { draft.cardId = el.dataset.id; renderView(); },
+    toggleSplit() { draft.showSplit = !draft.showSplit; renderView(); },
     who(el) {
       const id = el.dataset.id;
       const on = draft.weights[id] > 0;
@@ -444,7 +463,6 @@
         rateSource: d.rateSource, actualBase: d.actualBase || undefined,
       };
       const res = d.id ? await api('PUT', '/api/expenses/' + d.id, body) : await api('POST', '/api/expenses', body);
-      ls.set('lastCard', d.cardId);
       S = res.state;
       draft = null;
       toast(d.id ? 'Saved' : 'Expense added');
