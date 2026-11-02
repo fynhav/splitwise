@@ -255,7 +255,7 @@
       <label class="field" style="margin:0"><span>What was it for?</span><input data-bind="title" maxlength="80" placeholder="Dinner, taxi, hotel…" value="${esc(d.title)}" autocomplete="off"></label>
       <label class="field" style="margin:0"><span>Paid with</span><select data-bind="cardId">${cardOptions}</select></label>
       <div><div class="label">Shared between</div>
-        <div class="surface" style="padding:10px 12px 10px 16px"><div class="row" style="padding:0"><span class="grow"><b>${esc(splitSummary())}</b></span><button type="button" class="btn secondary inline" data-act="toggleSplit" aria-expanded="${d.showSplit}">${d.showSplit ? 'Done' : 'Adjust'}</button></div></div>
+        <div class="surface" style="display:flex;align-items:center;gap:12px;padding:8px 8px 8px 18px"><b style="flex:1;min-width:0">${esc(splitSummary())}</b><button type="button" class="btn secondary inline" style="min-height:40px;padding:0 18px" data-act="toggleSplit" aria-expanded="${d.showSplit}">${d.showSplit ? 'Done' : 'Adjust'}</button></div>
         ${d.showSplit ? `<div class="chips" style="margin-top:10px">${who}</div>
         <div class="chips" style="margin-top:8px"><button type="button" class="chip" data-act="mode" data-v="equal" aria-pressed="${d.splitMode === 'equal'}"><span class="n">Equal</span></button><button type="button" class="chip" data-act="mode" data-v="shares" aria-pressed="${d.splitMode === 'shares'}"><span class="n">By shares</span></button></div>
         ${steppers ? `<div class="surface" style="margin-top:10px;padding:8px 16px">${steppers}</div>` : ''}` : ''}
