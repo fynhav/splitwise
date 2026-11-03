@@ -94,7 +94,7 @@ input, select, textarea {
   background: #fff; min-height: 46px;
 }
 input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3px solid rgba(46, 89, 72, 0.45); outline-offset: 2px; }
-input.big { font-family: var(--serif); font-weight: 600; font-size: 40px; line-height: 1.1; padding: 6px 4px; border: 0; background: transparent; min-height: 0; }
+input.big { font-family: var(--serif); font-weight: 600; font-size: 40px; line-height: 1.2; height: 64px; padding: 10px 16px 0; border: 0; border-radius: 18px; background: transparent; min-height: 0; font-variant-numeric: lining-nums tabular-nums; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   min-height: 44px; border-radius: 22px; padding: 6px 16px; border: 2px solid transparent; background: var(--paper);
