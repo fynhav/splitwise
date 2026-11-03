@@ -508,7 +508,7 @@
     const hh = S.households[0] || [];
     const curs = R && R.rates ? Object.keys(R.rates).sort() : [base()];
     const rateInfo = R && R.rates ? `Rates ${R.date ? 'from ' + shortDate(R.date) : ''}${R.stale ? ' (offline copy)' : ''}` : 'No rates loaded yet. You can still type a rate or the actual amount charged.';
-    openSheet(`<h2>Settings</h2>
+    openSheet(`<div class="sheethead"><h2>Settings</h2><span class="sheetact"><button type="button" class="btn dark inline" data-act="saveSettings">Save</button><button type="button" class="iconbtn" data-act="closeSheet" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"/>', 'width="22" height="22"')}</button></span></div>
       <label class="field"><span>Trip name</span><input id="setTrip" maxlength="40" value="${esc(S.trip.name)}"></label>
       <label class="field"><span>Base currency ${locked ? '(locked once expenses exist)' : ''}</span><select id="setBase" ${locked ? 'disabled' : ''}>${[...new Set([base(), ...curs])].map((c) => `<option ${c === base() ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <label class="personrow"><input type="checkbox" id="setHH" ${S.settings.householdsOn ? 'checked' : ''}><span class="grow"><b>Settle as a household</b><br><span class="small muted">Members below are treated as one when working out who pays whom.</span></span></label>
@@ -517,9 +517,7 @@
       <button type="button" class="btn secondary" data-act="refreshRates">Refresh exchange rates</button>
       <button type="button" class="btn secondary" data-act="export">Download CSV</button>
       ${photoCreditsNote()}
-      <label class="field" style="margin-top:14px"><span>Add a person</span><input id="setPerson" maxlength="30" placeholder="Name"></label>
-      <button type="button" class="btn dark" data-act="saveSettings">Save</button>
-      <button type="button" class="btn secondary" data-act="closeSheet">Close</button>`);
+      <label class="field" style="margin-top:14px"><span>Add a person</span><input id="setPerson" maxlength="30" placeholder="Name"></label>`);
   }
 
   /* ---------- actions ---------- */

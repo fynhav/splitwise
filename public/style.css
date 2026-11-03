@@ -165,6 +165,10 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 
   box-shadow: 0 -10px 30px rgba(36, 54, 46, 0.2);
 }
 .sheetpanel h2 { font-size: 24px; margin-bottom: 14px; }
+/* title on the left, Save and Close on the right, kept in view while the sheet scrolls */
+.sheethead { position: sticky; top: -22px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -22px -20px 8px; padding: 22px 20px 10px; background: var(--paper); }
+.sheethead h2 { margin: 0; }
+.sheetact { display: inline-flex; align-items: center; gap: 10px; }
 .sheetpanel .btn + .btn { margin-top: 10px; }
 .pinwrap { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .pinwrap .surface { width: min(100%, 380px); }
@@ -190,3 +194,4 @@ select { appearance: auto; }
 .grouprows { display: flex; flex-direction: column; gap: 12px; }
 .placepic { position: relative; height: 120px; border-radius: 22px; margin: 0 0 12px; background: #A9C2AE center / cover no-repeat; box-shadow: var(--shadow); }
 
+.sheetact .iconbtn { background: var(--sage); box-shadow: none; }
