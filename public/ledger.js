@@ -25,7 +25,8 @@
     if (typeof input !== 'string') return null;
     let s = input.trim().replace(/[\s_']/g, '');
     if (s.includes(',') && s.includes('.')) {
-      s = s.replace(/,/g, '');
+      // whichever separator comes last is the decimal point: "1,234.56" or "1.234,56"
+      s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
     } else if (s.includes(',')) {
       const parts = s.split(',');
       if (parts.length === 2 && parts[1].length !== 3) s = parts[0] + '.' + parts[1];
@@ -85,8 +86,11 @@
     return r > 0 ? 1 / r : null;
   }
 
-  /** Split `total` (integer) across positive integer weights using largest remainder. Sum is always exact. */
-  function allocate(total, weights) {
+  /**
+   * Split `total` (integer) across positive integer weights using largest remainder. Sum is always exact.
+   * Ties for a leftover penny go to the person at position `start` first, then the next, so callers can rotate it.
+   */
+  function allocate(total, weights, start) {
     if (!Number.isInteger(total) || total < 0) throw new Error('total must be a non-negative integer');
     if (!weights.length) throw new Error('no weights');
     let W = 0;
@@ -104,7 +108,10 @@
       rems.push({ i, r: prod - q * W });
       used += q;
     });
-    rems.sort((a, b) => b.r - a.r || a.i - b.i);
+    const n = weights.length;
+    const s0 = ((start || 0) % n + n) % n;
+    const turn = (i) => (i - s0 + n) % n;
+    rems.sort((a, b) => b.r - a.r || turn(a.i) - turn(b.i));
     for (let k = 0; k < total - used; k++) out[rems[k].i] += 1;
     return out;
   }
@@ -113,10 +120,17 @@
     return state.people.map((p) => p.id);
   }
 
+  /** A stable number from an expense id, so leftover pennies rotate between people instead of always landing on the same one. */
+  function pennyTurn(id) {
+    let h = 0;
+    for (const ch of String(id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return h;
+  }
+
   /** What each person owes for one expense (base minor units). */
   function sharesOf(exp, order) {
     const ids = order.filter((id) => exp.split.weights[id] > 0);
-    const alloc = allocate(exp.baseMinor, ids.map((id) => exp.split.weights[id]));
+    const alloc = allocate(exp.baseMinor, ids.map((id) => exp.split.weights[id]), pennyTurn(exp.id));
     const out = {};
     ids.forEach((id, i) => { out[id] = alloc[i]; });
     return out;
@@ -125,7 +139,7 @@
   /** Who gets credit for paying: the card's holders, equally. */
   function creditsOf(exp, card, order) {
     const holders = order.filter((id) => card.holders.includes(id));
-    const alloc = allocate(exp.baseMinor, holders.map(() => 1));
+    const alloc = allocate(exp.baseMinor, holders.map(() => 1), pennyTurn(exp.id));
     const out = {};
     holders.forEach((id, i) => { out[id] = alloc[i]; });
     return out;

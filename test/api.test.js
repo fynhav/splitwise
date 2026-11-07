@@ -460,3 +460,37 @@ test('the page carries a build id that /api/build reports, so open apps can relo
     assert.equal((await r.json()).build, m[1]);
   } finally { await t2.close(); }
 });
+
+test('amounts typed with either decimal style are read correctly', () => {
+  assert.equal(L.parseAmount('1.234,56', 'USD'), 123456);
+  assert.equal(L.parseAmount('1,234.56', 'USD'), 123456);
+  assert.equal(L.parseAmount('12,50', 'USD'), 1250);
+});
+
+test('leftover pennies rotate between people instead of always landing on the first', () => {
+  const seen = new Set();
+  for (let i = 0; i < 30; i++) {
+    const s = L.sharesOf({ id: 'exp' + i, baseMinor: 1000, split: { weights: { fynn: 1, tara: 1, max: 1 } } }, ['fynn', 'tara', 'max']);
+    assert.equal(s.fynn + s.tara + s.max, 1000);
+    seen.add(Object.keys(s).find((k) => s[k] === 334));
+  }
+  assert.equal(seen.size, 3);
+});
+
+test('paying exactly the suggested transfers leaves everyone at zero (random trips)', () => {
+  const people = ['fynn', 'tara', 'max'];
+  const cards = [{ id: 'shared', holders: ['fynn', 'tara'] }, { id: 'f', holders: ['fynn'] }, { id: 't', holders: ['tara'] }, { id: 'm', holders: ['max'] }];
+  for (let n = 0; n < 2000; n++) {
+    const st = { settings: { householdsOn: n % 2 === 0 }, households: [['fynn', 'tara']], people: people.map((id) => ({ id })), cards, settlements: [], expenses: [] };
+    for (let i = 0; i < 1 + (n % 9); i++) {
+      const w = {}; people.forEach((p, k) => { if ((n + i + k) % 4) w[p] = 1 + ((n * i + k) % 3); });
+      if (!Object.keys(w).length) w.max = 1;
+      st.expenses.push({ id: `e${n}-${i}`, baseMinor: 1 + ((n * 7919 + i * 104729) % 50000), cardId: cards[(n + i) % 4].id, split: { weights: w } });
+    }
+    const plan = L.settlementPlan(st);
+    assert.equal(Object.values(plan.balances).reduce((a, b) => a + b.net, 0), 0);
+    plan.transfers.forEach((t, i) => st.settlements.push({ id: 'p' + i, from: t.from[0], to: t.to[0], baseMinor: t.baseMinor }));
+    assert.equal(L.settlementPlan(st).transfers.length, 0);
+    assert.ok(L.settlementPlan(st).units.every((u) => u.net === 0));
+  }
+});
